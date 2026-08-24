@@ -16,10 +16,14 @@ func Retry(recorder ResultRecorder, registry *Registry, record store.BatchRecord
 	var last store.BatchRecord
 	for attempt := 0; attempt < budget; attempt++ {
 		err := registry.Deliver(sinkID, record.Lines)
-		if err != nil {
+		if err == nil {
 			return recorder.RecordResult(record.ID, true, budget)
 		}
-		last, _ = recorder.RecordResult(record.ID, true, budget)
+		// Receiver error (e.g. a 5xx): record as failure, never as success.
+		// RecordResult increments the retry count and moves the batch to dead
+		// once the budget is exhausted, otherwise it stays failed and the loop
+		// tries again. Only a genuine success above can commit the batch.
+		last, _ = recorder.RecordResult(record.ID, false, budget)
 	}
 	return last, nil
 }
