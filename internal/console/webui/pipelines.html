@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>管道监控 - EdgeLog</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #222; }
+nav a { margin-right: 14px; }
+table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+.throttled { color: #b00; font-weight: bold; }
+form { margin-top: 12px; }
+input, button { margin-right: 8px; }
+</style>
+</head>
+<body>
+<h1>EdgeLog 管道监控</h1>
+<nav>
+  <a href="/ui/pipelines">管道监控</a>
+  <a href="/ui/config">采集配置</a>
+  <a href="/ui/rules">路由规则</a>
+  <a href="/ui/deadletter">死信队列</a>
+</nav>
+<form id="ingest">
+  <input id="sourceId" placeholder="源 ID" required>
+  <input id="lines" placeholder="日志行（逗号分隔）" required>
+  <button type="submit">注入日志</button>
+</form>
+<table id="grid">
+  <thead><tr><th>源</th><th>缓冲</th><th>丢弃</th><th>管道</th><th>限流</th></tr></thead>
+  <tbody></tbody>
+</table>
+<script>
+async function load() {
+  const data = await (await fetch('/api/status')).json();
+  const rows = data.pipelines || [];
+  const body = document.querySelector('#grid tbody');
+  body.innerHTML = '';
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const b = row.buffer || {};
+    tr.innerHTML = `<td>${row.source.name}</td><td>${b.size}/${b.capacity}</td><td>${b.dropped || 0}</td>
+      <td>${row.active ? row.pipeline.batch_size : '-'}</td>
+      <td class="${row.throttled ? 'throttled' : ''}">${row.throttled ? '限流中' : '正常'}</td>`;
+    body.appendChild(tr);
+  }
+}
+async function api(path, options) {
+  const res = await fetch(path, options);
+  if (!res.ok) { alert(await res.text()); return null; }
+  return res.json();
+}
+document.querySelector('#ingest').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const lines = document.querySelector('#lines').value.split(',').map(x => x.trim()).filter(Boolean);
+  await api(`/api/sources/${document.querySelector('#sourceId').value}/ingest`, { method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({lines}) });
+  load();
+});
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>
