@@ -45,10 +45,10 @@ func (s *Service) Advance(current Cursor, next Cursor) (Cursor, error) {
 		Line:      next.Line,
 		UpdatedAt: s.now(),
 	}
-	s.current[next.SourceID] = next
 	if err := s.checkpoints.Save(checkpoint); err != nil {
 		return Cursor{}, err
 	}
+	s.current[next.SourceID] = next
 	return next, nil
 }
 
