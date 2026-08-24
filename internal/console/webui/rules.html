@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>路由规则 - EdgeLog</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #222; }
+nav a { margin-right: 14px; }
+table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+form { margin-top: 12px; }
+input, textarea, button { margin-right: 8px; vertical-align: top; }
+</style>
+</head>
+<body>
+<h1>EdgeLog 路由规则</h1>
+<nav>
+  <a href="/ui/pipelines">管道监控</a>
+  <a href="/ui/config">采集配置</a>
+  <a href="/ui/rules">路由规则</a>
+  <a href="/ui/deadletter">死信队列</a>
+</nav>
+<form id="rules">
+  <textarea id="body" rows="4" cols="70" required>app-access,sink-id,1&#10;app-audit,sink-id,2</textarea>
+  <button type="submit">更新规则</button>
+</form>
+<p>格式：主题,接收端ID,分区（每行一个）</p>
+<table id="grid">
+  <thead><tr><th>版本</th><th>主题</th><th>接收端</th><th>分区</th></tr></thead>
+  <tbody></tbody>
+</table>
+<script>
+async function load() {
+  const ruleset = await (await fetch('/api/rules')).json();
+  const body = document.querySelector('#grid tbody');
+  body.innerHTML = '';
+  for (const rule of ruleset.rules || []) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${ruleset.version}</td><td>${rule.topic}</td><td>${rule.sink_id}</td><td>${rule.partition}</td>`;
+    body.appendChild(tr);
+  }
+}
+async function api(path, options) {
+  const res = await fetch(path, options);
+  if (!res.ok) { alert(await res.text()); return null; }
+  return res.json();
+}
+document.querySelector('#rules').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const rules = document.querySelector('#body').value.trim().split('\n').map(line => {
+    const parts = line.split(',').map(x => x.trim());
+    return {topic: parts[0], sink_id: parts[1], partition: +parts[2]};
+  });
+  await api('/api/rules', { method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rules}) });
+  load();
+});
+load();
+</script>
+</body>
+</html>
