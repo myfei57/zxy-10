@@ -8,5 +8,6 @@ func (b *RingBuffer) Drop(n int) {
 		b.lines[b.read] = ""
 		b.read = (b.read + 1) % b.capacity
 		b.count--
+		b.dropped++
 	}
 }
